@@ -1,6 +1,6 @@
 {
-  "name": "Acervo — Controle de Tiro Esportivo",
-  "short_name": "Acervo",
+  "name": "Habitualidades LFRS",
+  "short_name": "Habitualidades",
   "description": "Painel de controle de treinos, competições e manutenção de armas para credenciamento de tiro esportivo nível 3.",
   "start_url": "./index.html",
   "scope": "./",

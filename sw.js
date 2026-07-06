@@ -1,4 +1,4 @@
-const CACHE = 'acervo-shell-v1';
+const CACHE = 'habitualidades-shell-v2';
 const SHELL = [
   './index.html',
   './manifest.json',
@@ -25,12 +25,20 @@ self.addEventListener('fetch', (e)=>{
   const url = new URL(e.request.url);
 
   if(url.pathname.includes('/data/')){
-    e.respondWith(fetch(e.request).catch(()=>caches.match(e.request)));
+    e.respondWith(fetch(e.request, {cache:'no-store'}).catch(()=>caches.match(e.request)));
     return;
   }
 
   if(SHELL.some(p=>url.pathname.endsWith(p.replace('./','/')))){
-    e.respondWith(caches.match(e.request).then(r=>r || fetch(e.request)));
+    e.respondWith(
+      fetch(e.request, {cache:'no-store'})
+        .then(res=>{
+          const copy = res.clone();
+          caches.open(CACHE).then(c=>c.put(e.request, copy));
+          return res;
+        })
+        .catch(()=>caches.match(e.request))
+    );
     return;
   }
 });

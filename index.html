@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Acervo — Controle de Tiro Esportivo</title>
+<title>Habitualidades LFRS</title>
 <meta name="theme-color" content="#12140F">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -277,8 +277,7 @@ footer.foot{
       <div class="brand">
         <img src="icons/icon-192.png" alt="">
         <div class="brand-text">
-          <h1>Acervo</h1>
-          <p>Controle de tiro esportivo — Nível 3</p>
+          <h1>Habitualidades LFRS</h1>
         </div>
       </div>
       <div class="sync-status" id="syncStatus"><span class="dot" id="syncDot"></span><span id="syncText">carregando…</span></div>
@@ -336,9 +335,9 @@ footer.foot{
       <div class="section-title">Registro de limpeza</div>
       <div class="threshold-bar">
         <span>Alertar após</span>
-        <input type="number" id="cleanDaysThreshold" value="60" min="1"> <span>dias</span>
+        <input type="number" id="cleanDaysThreshold" value="90" min="1"> <span>dias</span>
         <span>ou</span>
-        <input type="number" id="cleanUsosThreshold" value="3" min="1"> <span>usos sem limpar</span>
+        <input type="number" id="cleanUsosThreshold" value="5" min="1"> <span>usos sem limpar</span>
       </div>
       <div class="clean-grid" id="cleanGrid"></div>
     </section>
@@ -576,7 +575,7 @@ function renderArmas(){
       <h3>${r[idx.arma]??'—'}</h3>
       <dl>
         <div><dt>Calibre</dt><dd>${r[idx.calibre]??'—'}</dd></div>
-        <div><dt>Sigma</dt><dd>${r[idx.sigma]??'—'}</dd></div>
+        <div><dt>Sigma</dt><dd>${typeof r[idx.sigma]==='number' ? r[idx.sigma].toLocaleString('pt-BR') : (r[idx.sigma]??'—')}</dd></div>
         <div><dt># GT Base</dt><dd>${r[idx.gt]??'—'}</dd></div>
       </dl>
     </div>`;
@@ -595,8 +594,8 @@ function renderLimpeza(){
 }
 
 function drawLimpeza(){
-  const daysT = Number(document.getElementById('cleanDaysThreshold').value)||60;
-  const usosT = Number(document.getElementById('cleanUsosThreshold').value)||3;
+  const daysT = Number(document.getElementById('cleanDaysThreshold').value)||90;
+  const usosT = Number(document.getElementById('cleanUsosThreshold').value)||5;
   const now = new Date();
 
   document.getElementById('cleanGrid').innerHTML = limpezaRaw.map(item=>{
