@@ -118,12 +118,23 @@ section.panel.active{display:block;animation:fade .25s ease;}
 .section-title::after{content:"";flex:1;height:1px;background:var(--line);}
 
 .window-bar{
-  display:flex;gap:1.5rem;flex-wrap:wrap;
+  display:flex;gap:1.2rem;flex-wrap:wrap;align-items:center;
   font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--muted);
   border:1px solid var(--line);background:var(--bg-panel);
   padding:.7rem .9rem;border-radius:3px;
 }
 .window-bar b{color:var(--paper);font-weight:500;}
+.window-bar input[type=date]{
+  background:var(--bg-panel-2);border:1px solid var(--line);color:var(--paper);
+  font-family:'IBM Plex Mono',monospace;font-size:.75rem;
+  padding:.25rem .4rem;border-radius:2px;color-scheme:dark;
+}
+.window-bar button{
+  background:transparent;border:1px solid var(--line);color:var(--muted);
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;
+  padding:.3rem .55rem;border-radius:2px;cursor:pointer;letter-spacing:.02em;
+}
+.window-bar button:hover{color:var(--brass);border-color:var(--brass-dim);}
 
 .grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.9rem;}
 
@@ -404,62 +415,115 @@ function heatColor(v, max){
   return `rgba(201,162,39,${alpha.toFixed(2)})`;
 }
 
-function renderResumo(){
-  const rows = aoa('Resumo');
-  if(!rows.length) return;
+let ORIG_INICIO = null, ORIG_FIM = null;
+let META_TREINOS = 20, META_PROVAS = 6, META_NAC = 2;
+let GROUPS_ORDER = [];
+let ENTITY_HEADER = [];
+let BASE_ROWS = [];
 
-  const inicio = rows[0] ? rows[0][1] : null;
-  const fim = rows[0] ? rows[0][3] : null;
+function toInputDate(d){
+  if(!(d instanceof Date) || isNaN(d)) return '';
+  const pad = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
 
-  const metaTreinosRow = findRow(rows, r=>r[0]==='Meta Treinos');
-  const metaProvasRow = findRow(rows, r=>r[0]==='Meta Provas');
-  const metaNacRow = findRow(rows, r=>r[0]==='Meta Nacionais');
-  const metaTreinos = metaTreinosRow>=0 ? num(rows[metaTreinosRow][1]) : 20;
-  const metaProvas = metaProvasRow>=0 ? num(rows[metaProvasRow][1]) : 6;
-  const metaNac = metaNacRow>=0 ? num(rows[metaNacRow][1]) : 2;
+function computeGroupMetrics(grupo, inicio, fim){
+  let treinos=0, provas=0, nacionais=0;
+  const porEntidade = {};
+  for(const r of BASE_ROWS){
+    if(r[5]!==grupo) continue;
+    const data = r[4];
+    if(!(data instanceof Date) || isNaN(data)) continue;
+    if(data<inicio || data>fim) continue;
+    const val = num(r[8]);
+    const tipo = r[3];
+    if(tipo==='T'){ treinos+=val; continue; }
+    provas+=val;
+    if(tipo==='N') nacionais+=val;
+    const ent = r[2];
+    porEntidade[ent] = (porEntidade[ent]||0) + val;
+  }
+  return {treinos, provas, nacionais, porEntidade};
+}
 
-  document.getElementById('windowBar').innerHTML = `
-    <span>Janela analisada: <b>${fmtDate(inicio)}</b> a <b>${fmtDate(fim)}</b></span>
-    <span>Meta do ciclo: <b>${metaTreinos}</b> treinos · <b>${metaProvas}</b> provas · <b>${metaNac}</b> nacionais</span>
-  `;
+function recomputeProgress(){
+  const inicio = new Date(document.getElementById('inicioInput').value+'T00:00:00');
+  const fim = new Date(document.getElementById('fimInput').value+'T23:59:59');
+  if(isNaN(inicio) || isNaN(fim)) return;
 
-  const progHeaderIdx = findRow(rows, r=>r[0]==='Grupo' && r[1]==='Treinos');
-  const progRows = progHeaderIdx>=0 ? collectBlock(rows, progHeaderIdx+1) : [];
+  const metrics = GROUPS_ORDER.map(grupo=>({grupo, ...computeGroupMetrics(grupo, inicio, fim)}));
 
-  document.getElementById('groupCards').innerHTML = progRows.map(r=>{
-    const [grupo, treinos, pTreinos, faltaT, provas, pProvas, faltaP, nac, pNac, faltaN] = r;
+  document.getElementById('groupCards').innerHTML = metrics.map(({grupo, treinos, provas, nacionais})=>{
     const color = GROUP_COLORS[grupo] || 'var(--brass)';
+    const pT = META_TREINOS ? treinos/META_TREINOS : 0;
+    const pP = META_PROVAS ? provas/META_PROVAS : 0;
+    const pN = META_NAC ? nacionais/META_NAC : 0;
     return `<div class="group-card" style="--gc:${color}">
       <div class="gname">${grupo}</div>
       <div class="rings">
-        <div class="ring-wrap">${ring(num(pTreinos), color)}<span class="ring-label">Treinos</span><span class="ring-num">${num(treinos)}/${metaTreinos}</span></div>
-        <div class="ring-wrap">${ring(num(pProvas), color)}<span class="ring-label">Provas</span><span class="ring-num">${num(provas)}/${metaProvas}</span></div>
-        <div class="ring-wrap">${ring(num(pNac), color)}<span class="ring-label">Nacionais</span><span class="ring-num">${num(nac)}/${metaNac}</span></div>
+        <div class="ring-wrap">${ring(pT, color)}<span class="ring-label">Treinos</span><span class="ring-num">${treinos}/${META_TREINOS}</span></div>
+        <div class="ring-wrap">${ring(pP, color)}<span class="ring-label">Provas</span><span class="ring-num">${provas}/${META_PROVAS}</span></div>
+        <div class="ring-wrap">${ring(pN, color)}<span class="ring-label">Nacionais</span><span class="ring-num">${nacionais}/${META_NAC}</span></div>
       </div>
     </div>`;
   }).join('') || '<p style="color:var(--muted)">Sem dados de progresso.</p>';
 
-  const entHeaderIdx = findRow(rows, r=>r[0]==='Grupo' && r[1] && r[1]!=='Treinos', progHeaderIdx+1);
-  if(entHeaderIdx>=0){
-    const header = rows[entHeaderIdx];
-    const entRows = collectBlock(rows, entHeaderIdx+1);
-    const entCols = header.length;
-    let maxVal = 0;
-    entRows.forEach(r=>{ for(let c=1;c<entCols-1;c++) maxVal = Math.max(maxVal, num(r[c])); });
-    let html = '<thead><tr>' + header.map((h,i)=>`<th class="${i>0?'num':''}">${h??''}</th>`).join('') + '</tr></thead><tbody>';
-    entRows.forEach(r=>{
-      html += '<tr><td><span class="badge" style="color:'+(GROUP_COLORS[r[0]]||'var(--brass)')+'">'+r[0]+'</span></td>';
-      for(let c=1;c<entCols;c++){
-        const v = r[c];
-        const isTotal = c===entCols-1;
-        if(isTotal){ html += `<td class="num" style="color:var(--brass);font-weight:600">${num(v)}</td>`; }
-        else { html += `<td class="num"><span class="heat" style="background:${heatColor(num(v),maxVal)}">${num(v)}</span></td>`; }
-      }
-      html += '</tr>';
+  let maxVal = 0;
+  metrics.forEach(m=> ENTITY_HEADER.forEach(ent=> maxVal = Math.max(maxVal, m.porEntidade[ent]||0)));
+
+  let html = '<thead><tr><th>Grupo</th>' + ENTITY_HEADER.map(e=>`<th class="num">${e}</th>`).join('') + '<th class="num">TOTAL</th></tr></thead><tbody>';
+  metrics.forEach(({grupo, provas, porEntidade})=>{
+    html += '<tr><td><span class="badge" style="color:'+(GROUP_COLORS[grupo]||'var(--brass)')+'">'+grupo+'</span></td>';
+    ENTITY_HEADER.forEach(ent=>{
+      const v = porEntidade[ent]||0;
+      html += `<td class="num"><span class="heat" style="background:${heatColor(v,maxVal)}">${v}</span></td>`;
     });
-    html += '</tbody>';
-    document.getElementById('tblEntidades').innerHTML = html;
-  }
+    html += `<td class="num" style="color:var(--brass);font-weight:600">${provas}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('tblEntidades').innerHTML = html;
+}
+
+function resetWindow(){
+  document.getElementById('inicioInput').value = toInputDate(ORIG_INICIO);
+  document.getElementById('fimInput').value = toInputDate(ORIG_FIM);
+  recomputeProgress();
+}
+
+function renderResumo(){
+  const rows = aoa('Resumo');
+  if(!rows.length) return;
+
+  ORIG_INICIO = rows[0] ? rows[0][1] : null;
+  ORIG_FIM = rows[0] ? rows[0][3] : null;
+
+  const metaTreinosRow = findRow(rows, r=>r[0]==='Meta Treinos');
+  const metaProvasRow = findRow(rows, r=>r[0]==='Meta Provas');
+  const metaNacRow = findRow(rows, r=>r[0]==='Meta Nacionais');
+  META_TREINOS = metaTreinosRow>=0 ? num(rows[metaTreinosRow][1]) : 20;
+  META_PROVAS = metaProvasRow>=0 ? num(rows[metaProvasRow][1]) : 6;
+  META_NAC = metaNacRow>=0 ? num(rows[metaNacRow][1]) : 2;
+
+  const progHeaderIdx = findRow(rows, r=>r[0]==='Grupo' && r[1]==='Treinos');
+  const progRows = progHeaderIdx>=0 ? collectBlock(rows, progHeaderIdx+1) : [];
+  GROUPS_ORDER = progRows.map(r=>r[0]);
+
+  const entHeaderIdx = findRow(rows, r=>r[0]==='Grupo' && r[1] && r[1]!=='Treinos', progHeaderIdx+1);
+  ENTITY_HEADER = entHeaderIdx>=0 ? rows[entHeaderIdx].slice(1, -1).filter(h=>h!==null && h!=='') : [];
+
+  BASE_ROWS = collectBlock(aoa('BASE'), 1);
+
+  document.getElementById('windowBar').innerHTML = `
+    <span>Janela: <input type="date" id="inicioInput" value="${toInputDate(ORIG_INICIO)}"> a
+    <input type="date" id="fimInput" value="${toInputDate(ORIG_FIM)}"></span>
+    <button id="resetWindowBtn" type="button">Restaurar janela original</button>
+    <span>Meta do ciclo: <b>${META_TREINOS}</b> treinos · <b>${META_PROVAS}</b> provas · <b>${META_NAC}</b> nacionais</span>
+  `;
+  document.getElementById('inicioInput').addEventListener('change', recomputeProgress);
+  document.getElementById('fimInput').addEventListener('change', recomputeProgress);
+  document.getElementById('resetWindowBtn').addEventListener('click', resetWindow);
+
+  recomputeProgress();
 
   const ativHeaderIdx = findRow(rows, r=>r[1]==='Ultimo Treino');
   if(ativHeaderIdx>=0){
