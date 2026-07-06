@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ranoya LEGO Collection</title>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icons/icon-192.png"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="LEGO"/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --red: #e3000b;
+      --yellow: #FFD700;
+      --green: #7ec850;
+      --bg: #0a0a0f;
+      --card: #13131f;
+      --border: #1e1e2e;
+      --text: #f0ede6;
+      --muted: #666;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+
+    /* HEADER */
+    header {
+      background: var(--card);
+      border-bottom: 3px solid var(--red);
+      padding: 12px 16px 8px;
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+
+    .header-titles h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 20px; letter-spacing: 1px; color: var(--text);
+      line-height: 1;
+    }
+    .header-titles .version {
+      font-size: 11px; color: var(--muted); margin-top: 1px;
+    }
+    .header-status {
+      font-size: 11px; color: var(--muted); text-align: right;
+    }
+    .header-status .updated { color: var(--yellow); font-weight: 600; }
+
+    /* NAV */
+    nav {
+      display: flex;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 59px; z-index: 99;
+    }
+    nav button {
+      flex: 1; padding: 10px; background: none; border: none;
+      color: var(--muted); font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 500; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    nav button.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+
+    /* LOADING */
+    #loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 60vh; gap: 16px;
+    }
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--yellow);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--muted); font-size: 14px; }
+
+    /* ERROR */
+    #error-msg {
+      display: none; padding: 32px 16px; text-align: center; color: var(--red);
+    }
+
+    /* MAIN CONTENT */
+    #app { display: none; }
+
+    .tab-panel { display: none; padding: 12px 12px 80px; }
+    .tab-panel.active { display: block; }
+
+    /* HERO KPI BAR */
+    .hero-bar {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 14px 12px;
+      margin-bottom: 8px;
+    }
+    .hero-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 10px;
+    }
+    .hero-left .hero-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px; color: var(--text); line-height: 1;
+    }
+    .hero-left .hero-label {
+      font-size: 10px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-top: 1px;
+    }
+    .hero-right { text-align: right; }
+    .hero-right .hero-count {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 48px; color: var(--text); line-height: 1;
+    }
+    .hero-right .hero-label {
+      font-size: 10px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px; margin-top: 1px;
+    }
+    .progress-wrap { margin-bottom: 6px; }
+    .progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--muted); margin-bottom: 4px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .progress-label .pct { color: var(--yellow); font-weight: 700; }
+    .progress-track {
+      width: 100%; height: 6px; background: var(--border);
+      border-radius: 3px; overflow: hidden;
+    }
+    .progress-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+    .progress-sub {
+      display: flex; justify-content: space-between;
+      font-size: 10px; color: var(--muted); margin-top: 4px;
+    }
+
+
+    /* SECTION TITLE */
+    .section-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 16px; letter-spacing: 1px;
+      color: var(--muted); margin: 16px 0 8px;
+      text-transform: uppercase;
+    }
+
+    /* TABLES */
+    .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--card); }
+    thead th {
+      background: #1a1a2e; color: var(--muted);
+      padding: 8px 10px; text-align: center;
+      font-weight: 600; font-size: 10px; text-transform: uppercase;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    thead th:first-child { text-align: left; }
+    tbody td { text-align: center !important; }
+    tbody td:first-child { text-align: left !important; }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 8px 10px; text-align: center; vertical-align: middle; }
+    tbody td:first-child { text-align: left; }
+    .theme-dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; margin-right: 6px; flex-shrink: 0;
+    }
+    .theme-cell { display: flex; align-items: center; }
+    .pct-bar-wrap { display: flex; align-items: center; gap: 6px; justify-content: center; }
+    .pct-bar-bg { width: 40px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .pct-bar-fill { height: 100%; border-radius: 2px; }
+
+    /* MATRIX */
+    /* COLLECTION OVERVIEW TABLE */
+    .overview-wrap { border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+    .overview-wrap table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 13px; }
+    .overview-wrap thead th {
+      background: #1a1a2e; color: var(--muted); padding: 10px 14px;
+      text-align: center; font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.8px; font-weight: 600; border-bottom: 1px solid var(--border);
+    }
+    .overview-wrap thead th:first-child { text-align: left; }
+    .overview-wrap tbody tr { border-bottom: 1px solid var(--border); }
+    .overview-wrap tbody tr:last-child { border-bottom: none; background: #1a1a2e; }
+    .overview-wrap tbody td { padding: 12px 14px; text-align: center; vertical-align: middle; }
+    .overview-wrap tbody td:first-child { text-align: left; font-weight: 600; color: var(--text); }
+    .overview-wrap tbody tr:last-child td { color: var(--green); font-weight: 700; }
+    .ov-sets { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.2; }
+    .ov-bricks { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .overview-wrap tbody tr:last-child .ov-sets { color: var(--green); }
+    .overview-wrap tbody tr:last-child .ov-bricks { color: var(--green); opacity: 0.8; }
+
+    /* WISHLIST */
+    .wishlist-month { margin-bottom: 20px; }
+    .wishlist-month-header {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 18px; letter-spacing: 1.5px; color: var(--yellow);
+      margin-bottom: 8px; padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .wishlist-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 12px;
+      border-left: 3px solid var(--yellow);
+    }
+    .wishlist-card-left { flex: 1; min-width: 0; }
+    .wishlist-card .wl-name { font-weight: 700; font-size: 15px; color: var(--text); margin-bottom: 6px; line-height: 1.3; }
+    .wishlist-card .wl-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+    .wishlist-empty { text-align: center; padding: 40px 16px; color: var(--muted); font-size: 14px; }
+    .wishlist-summary { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+
+    /* SEARCH */
+    .search-bar {
+      display: flex; gap: 8px; margin-bottom: 10px;
+    }
+    .search-bar input {
+      flex: 1; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 14px;
+    }
+    .search-bar input:focus { outline: none; border-color: var(--yellow); }
+    .filter-row {
+      display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .filter-row select {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 8px; color: var(--text);
+      font-family: 'DM Sans', sans-serif; font-size: 12px;
+      flex: 1; min-width: 0;
+    }
+    .filter-row select:focus { outline: none; border-color: var(--yellow); }
+
+    .set-count { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+    .set-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 8px;
+      border-left: 3px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .set-card.built { border-left-color: var(--green); }
+    .set-card.retired { border-left-color: var(--red); }
+    .set-card-left { flex: 1; min-width: 0; }
+    .set-card-right { text-align: right; flex-shrink: 0; }
+    .set-card .set-num-label {
+      font-size: 11px; color: var(--muted); margin-bottom: 2px;
+    }
+    .set-card .set-name {
+      font-weight: 700; font-size: 15px; line-height: 1.3;
+      color: var(--text); margin-bottom: 6px;
+    }
+    .set-card .set-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+    .set-card-right .set-pieces-num {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 28px; color: var(--text); line-height: 1;
+    }
+    .set-card-right .set-pieces-label {
+      font-size: 10px; color: var(--muted); text-transform: uppercase;
+    }
+    .badge {
+      font-size: 10px; padding: 3px 8px; border-radius: 5px;
+      font-weight: 600; letter-spacing: 0.3px; border: 1px solid transparent;
+    }
+    .badge-theme { background: #1e1e2e; color: var(--text); border-color: var(--border); }
+    .badge-built { background: transparent; color: var(--green); border-color: var(--green); }
+    .badge-unbuilt { background: transparent; color: var(--muted); border-color: var(--border); }
+    .badge-retired { background: transparent; color: #ff6666; border-color: #ff6666; }
+    .badge-active { background: transparent; color: var(--green); border-color: var(--green); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <img src="icons/icon-192.png" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;" alt="LEGO"/>
+    <div class="header-titles">
+      <h1>Ranoya LEGO Collection</h1>
+      <div class="version" id="header-version">Loading…</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <div class="updated" id="header-updated">—</div>
+    <div>last updated</div>
+  </div>
+</header>
+
+<nav>
+  <button class="active" onclick="switchTab('dashboard')">Dashboard</button>
+  <button onclick="switchTab('search')">Search</button>
+  <button onclick="switchTab('wishlist')">Wishlist</button>
+</nav>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Loading collection…</p>
+</div>
+
+<div id="error-msg">
+  <p>⚠️ Could not load collection data.</p>
+  <p style="font-size:12px;margin-top:8px;color:var(--muted)">Check your connection and reload.</p>
+</div>
+
+<div id="app">
+  <!-- DASHBOARD -->
+  <div class="tab-panel active" id="tab-dashboard">
+
+    <!-- HERO BAR -->
+    <div class="hero-bar">
+      <div class="hero-top">
+        <div class="hero-left">
+          <div class="hero-count" id="hero-total">—</div>
+          <div class="hero-label">Total Sets</div>
+        </div>
+        <div class="hero-right">
+          <div class="hero-count" id="hero-bricks">—</div>
+          <div class="hero-label">Total Bricks</div>
+        </div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Build Progress</span>
+          <span class="pct" id="hero-pct">—</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="hero-bar" style="width:0%"></div>
+        </div>
+        <div class="progress-sub">
+          <span id="hero-built-sub">—</span>
+          <span id="hero-tobuild-sub">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Collection Overview</div>
+    <div class="overview-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Not Retired</th>
+            <th>Retired</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="overview-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Build Progress by Theme</div>
+    <div class="table-wrap">
+      <table id="theme-table">
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:bottom;border-right:1px solid var(--border)">Theme</th>
+            <th colspan="2" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">Total</th>
+            <th colspan="2" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">Built</th>
+            <th colspan="2" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">Unbuilt</th>
+            <th colspan="2" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">%</th>
+            <th colspan="2" style="border-right:1px solid var(--border);border-bottom:1px solid var(--border)">Active</th>
+            <th colspan="2" style="border-bottom:1px solid var(--border)">Retired</th>
+          </tr>
+          <tr>
+            <th>Sets</th><th style="border-right:1px solid var(--border)">🧱</th>
+            <th>Sets</th><th style="border-right:1px solid var(--border)">🧱</th>
+            <th>Sets</th><th style="border-right:1px solid var(--border)">🧱</th>
+            <th>Sets</th><th style="border-right:1px solid var(--border)">🧱</th>
+            <th>Sets</th><th style="border-right:1px solid var(--border)">🧱</th>
+            <th>Sets</th><th>🧱</th>
+          </tr>
+        </thead>
+        <tbody id="theme-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">Retirement Timeline</div>
+    <div class="table-wrap">
+      <table id="retire-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Sets</th>
+            <th>Bricks</th>
+          </tr>
+        </thead>
+        <tbody id="retire-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- WISHLIST -->
+  <div class="tab-panel" id="tab-wishlist">
+    <div class="wishlist-summary" id="wishlist-summary"></div>
+    <div class="filter-row" style="margin-bottom:12px">
+      <select id="filter-wl-month" onchange="filterWishlist()">
+        <option value="">All Months</option>
+      </select>
+    </div>
+    <div id="wishlist-content"></div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="tab-panel" id="tab-search">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Set number or name…" oninput="renderSearch()"/>
+    </div>
+    <div class="filter-row">
+      <select id="filter-theme" onchange="renderSearch()"><option value="">All Themes</option></select>
+      <select id="filter-built" onchange="renderSearch()">
+        <option value="">Built & Unbuilt</option>
+        <option value="YES">Built</option>
+        <option value="NO">Unbuilt</option>
+      </select>
+      <select id="filter-retired" onchange="renderSearch()">
+        <option value="">Active & Retired</option>
+        <option value="Not Retired">Active</option>
+        <option value="Retired">Retired</option>
+      </select>
+    </div>
+    <div class="set-count" id="set-count"></div>
+    <div id="search-results"></div>
+  </div>
+</div>
+
+<script>
+const XLSX_URL = 'https://raw.githubusercontent.com/lfranoya/lego-xlsx/main/data/LEGO_Dash.xlsx';
+
+const THEME_COLORS = {
+  "Star Wars": "#FFE81F",
+  "Architecture": "#A8D5E2",
+  "Icons": "#F4A460",
+  "Ideas": "#98D8C8",
+  "Super Mario": "#E8402A",
+  "Speed Champions": "#E63946",
+  "Marvel": "#FF3A3A",
+  "Technic": "#CC0000",
+  "Botanical Collection": "#7EC850",
+  "Creator": "#4ECDC4",
+  "Creator Expert": "#2E86AB",
+  "Jurassic World": "#5C8A3C",
+  "Pokemon": "#FFCB05",
+  "Disney": "#1B6CA8",
+  "Harry Potter": "#C7A84F",
+  "DC": "#0476D0",
+  "Editions": "#9B5DE5",
+  "Other": "#888888"
+};
+
+function themeColor(t) { return THEME_COLORS[t] || '#888888'; }
+function fmtN(n) { return n.toLocaleString(); }
+
+let allSets = [];
+
+// Convert Excel serial date to readable string
+function excelDateToString(serial) {
+  if (!serial || isNaN(serial)) return '—';
+  const date = new Date(Math.round((serial - 25568) * 86400 * 1000));
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function pctColor(pct) {
+  if (pct === 100) return '#2d7a2d';
+  if (pct > 75)   return '#7ec850';
+  if (pct >= 50)  return '#FFD700';
+  if (pct >= 25)  return '#FF8C00';
+  return '#e3000b';
+}
+
+async function loadData() {
+  try {
+    const resp = await fetch(XLSX_URL + '?t=' + Date.now());
+    if (!resp.ok) throw new Error('fetch failed');
+    const buf = await resp.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+
+    // Settings tab
+    if (wb.Sheets['Settings']) {
+      const s = wb.Sheets['Settings'];
+      const settingsRows = XLSX.utils.sheet_to_json(s, { header: 1 });
+      // B1 = settingsRows[0][1]
+      const rawDate = settingsRows[0] && settingsRows[0][1];
+      document.getElementById('header-updated').textContent =
+        typeof rawDate === 'number' ? excelDateToString(rawDate) : (rawDate || '—');
+    }
+
+    // version displayed by version.txt check on load
+
+    // Inventory tab
+    const ws = wb.Sheets['Inventory'];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+    allSets = rows.slice(1)
+      .filter(r => r[1] && r[2]) // must have set number and name
+      .map(r => ({
+        num:     String(r[1]),
+        name:    String(r[2]),
+        theme:   String(r[3] || 'Other'),
+        pieces:  Number(r[4]) || 0,
+        yearRel: Number(r[5]) || 0,
+        yearRet: r[6] === '-' || !r[6] ? null : Number(r[6]),
+        built:   String(r[7]).toUpperCase() === 'YES',
+        retired: String(r[8]) === 'Retired'
+      }));
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+
+    // Parse Wishlist tab — fully dynamic, works with any number of rows
+    let wishlistSets = [];
+    if (wb.Sheets['Wishlist']) {
+      const wws = wb.Sheets['Wishlist'];
+      const wrows = XLSX.utils.sheet_to_json(wws, { header: 1 });
+      wishlistSets = wrows.slice(1)
+        .filter(r => r[0] && r[1])
+        .map(r => ({
+          num:         String(r[0]).trim(),
+          name:        String(r[1]).trim(),
+          theme:       String(r[2] || 'Other').trim(),
+          releaseDate: typeof r[3] === 'number'
+                         ? new Date(Math.round((r[3] - 25568) * 86400 * 1000))
+                         : null,
+          gotIt:       String(r[4] || '').trim().toUpperCase()
+        }));
+    }
+
+    renderDashboard();
+    populateThemeFilter();
+    renderSearch();
+    renderWishlist(wishlistSets);
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error-msg').style.display = 'block';
+  }
+}
+
+function renderDashboard() {
+  const sets = allSets;
+  const total = sets.length;
+  const totalBricks = sets.reduce((a,s) => a + s.pieces, 0);
+  const builtSets = sets.filter(s => s.built);
+  const unbuiltSets = sets.filter(s => !s.built);
+  const retiredSets = sets.filter(s => s.retired);
+  // Hero bar + 4 stat boxes
+  const builtBricks    = builtSets.reduce((a,s)=>a+s.pieces,0);
+  const unbuiltBricks  = unbuiltSets.reduce((a,s)=>a+s.pieces,0);
+  const activeSets     = sets.filter(s => !s.retired);
+  const activeBricks   = activeSets.reduce((a,s)=>a+s.pieces,0);
+  const retiredBricks  = retiredSets.reduce((a,s)=>a+s.pieces,0);
+  const pctBuilt       = total ? Math.round(builtSets.length/total*100) : 0;
+
+  document.getElementById('hero-total').textContent    = total;
+  document.getElementById('hero-bricks').textContent   = fmtN(totalBricks);
+  document.getElementById('hero-pct').textContent      = pctBuilt + '% built';
+  document.getElementById('hero-bar').style.width      = pctBuilt + '%';
+  document.getElementById('hero-bar').style.background  = pctColor(pctBuilt);
+  document.getElementById('hero-built-sub').textContent    = builtSets.length + ' built';
+  document.getElementById('hero-tobuild-sub').textContent  = unbuiltSets.length + ' unbuilt';
+
+
+  // Theme table
+  const themes = [...new Set(sets.map(s => s.theme))].sort();
+  const tbody = document.getElementById('theme-tbody');
+  tbody.innerHTML = themes.map(theme => {
+    const ts = sets.filter(s => s.theme === theme);
+    const built = ts.filter(s => s.built);
+    const unblt = ts.filter(s => !s.built);
+    const act   = ts.filter(s => !s.retired);
+    const ret   = ts.filter(s => s.retired);
+    const bk = r => r.reduce((a,s)=>a+s.pieces,0);
+    const pctS = ts.length ? Math.round(built.length/ts.length*100) : 0;
+    const pctB = bk(ts) ? Math.round(bk(built)/bk(ts)*100) : 0;
+    return `<tr>
+      <td style="border-right:1px solid var(--border)"><span class="theme-cell"><span class="theme-dot" style="background:${themeColor(theme)}"></span>${theme}</span></td>
+      <td>${ts.length}</td>
+      <td style="border-right:1px solid var(--border)">${fmtN(bk(ts))}</td>
+      <td>${built.length}</td>
+      <td style="border-right:1px solid var(--border)">${fmtN(bk(built))}</td>
+      <td>${unblt.length}</td>
+      <td style="border-right:1px solid var(--border)">${fmtN(bk(unblt))}</td>
+      <td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${pctS}%;background:${pctColor(pctS)}"></div></div>${pctS}%</div></td>
+      <td style="border-right:1px solid var(--border)"><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:${pctB}%;background:${pctColor(pctB)}"></div></div>${pctB}%</div></td>
+      <td>${act.length}</td>
+      <td style="border-right:1px solid var(--border)">${fmtN(bk(act))}</td>
+      <td>${ret.length}</td>
+      <td>${fmtN(bk(ret))}</td>
+    </tr>`;
+  }).join('');
+
+  // Collection Overview Matrix
+  const bk = arr => arr.reduce((a,s)=>a+s.pieces,0);
+  const builtActive   = sets.filter(s => s.built && !s.retired);
+  const builtRetired  = sets.filter(s => s.built && s.retired);
+  const unbltActive   = sets.filter(s => !s.built && !s.retired);
+  const unbltRetired  = sets.filter(s => !s.built && s.retired);
+
+  function ovCell(arr) {
+    return `<td><div class="ov-sets">${arr.length}</div><div class="ov-bricks">${fmtN(bk(arr))}</div></td>`;
+  }
+  document.getElementById('overview-tbody').innerHTML = `
+    <tr>
+      <td>Built</td>
+      ${ovCell(builtActive)}${ovCell(builtRetired)}${ovCell(builtSets)}
+    </tr>
+    <tr>
+      <td>Unbuilt</td>
+      ${ovCell(unbltActive)}${ovCell(unbltRetired)}${ovCell(unbuiltSets)}
+    </tr>
+    <tr>
+      <td>Total</td>
+      ${ovCell(activeSets)}${ovCell(retiredSets)}
+      <td><div class="ov-sets">${total}</div><div class="ov-bricks">${fmtN(totalBricks)}</div></td>
+    </tr>`;
+
+  // Retirement timeline
+  const yearMap = {};
+  sets.forEach(s => {
+    if (s.yearRet) {
+      if (!yearMap[s.yearRet]) yearMap[s.yearRet] = { sets: 0, bricks: 0 };
+      yearMap[s.yearRet].sets++;
+      yearMap[s.yearRet].bricks += s.pieces;
+    }
+  });
+  const noRetire = sets.filter(s => !s.yearRet);
+  const rtbody = document.getElementById('retire-tbody');
+  rtbody.innerHTML = Object.keys(yearMap).sort().map(y => `
+    <tr>
+      <td>${y}</td>
+      <td>${yearMap[y].sets}</td>
+      <td>${fmtN(yearMap[y].bricks)}</td>
+    </tr>`).join('') + `
+    <tr>
+      <td style="color:var(--muted)">Active (no year)</td>
+      <td>${noRetire.length}</td>
+      <td>${fmtN(noRetire.reduce((a,s)=>a+s.pieces,0))}</td>
+    </tr>`;
+}
+
+function populateThemeFilter() {
+  const themes = [...new Set(allSets.map(s => s.theme))].sort();
+  const sel = document.getElementById('filter-theme');
+  themes.forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    sel.appendChild(o);
+  });
+}
+
+let _wishlistSets = [];
+
+function filterWishlist() {
+  const sel = document.getElementById('filter-wl-month').value;
+  const filtered = sel ? _wishlistSets.filter(s => {
+    if (!s.releaseDate) return sel === 'unknown';
+    const key = s.releaseDate.getFullYear() + '-' + String(s.releaseDate.getMonth()+1).padStart(2,'0');
+    return key === sel;
+  }) : _wishlistSets;
+  renderWishlistCards(filtered);
+}
+
+function renderWishlistCards(pending) {
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  if (pending.length === 0) {
+    document.getElementById('wishlist-content').innerHTML =
+      '<div class="wishlist-empty">No sets for this month.</div>';
+    return;
+  }
+  const groups = {};
+  pending.forEach(s => {
+    const key = s.releaseDate ? s.releaseDate.getFullYear() + '-' + String(s.releaseDate.getMonth()+1).padStart(2,'0') : 'unknown';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(s);
+  });
+  const html = Object.keys(groups).sort().map(key => {
+    const label = key === 'unknown' ? 'Date Unknown'
+      : MONTHS[parseInt(key.split('-')[1])-1] + ' ' + key.split('-')[0];
+    const cards = groups[key].map(s => `
+      <div class="wishlist-card">
+        <div class="wishlist-card-left">
+          <div class="wl-name">${s.name}</div>
+          <div class="wl-meta">
+            <span class="badge badge-theme" style="border-left:2px solid ${themeColor(s.theme)}">${s.theme}</span>
+          </div>
+        </div>
+        <div class="set-card-right">
+          <div class="set-pieces-label">set #</div>
+          <div class="set-pieces-num">${s.num}</div>
+        </div>
+      </div>`).join('');
+    return `<div class="wishlist-month">
+      <div class="wishlist-month-header">${label}</div>
+      ${cards}
+    </div>`;
+  }).join('');
+  document.getElementById('wishlist-content').innerHTML = html;
+}
+
+function renderWishlist(wishlistSets) {
+  const MONTHS = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+
+  _wishlistSets = wishlistSets.filter(s => s.gotIt !== 'YES');
+
+  const summary = document.getElementById('wishlist-summary');
+  summary.textContent = _wishlistSets.length + ' set' + (_wishlistSets.length !== 1 ? 's' : '') + ' on wishlist';
+
+  if (_wishlistSets.length === 0) {
+    document.getElementById('wishlist-content').innerHTML =
+      '<div class="wishlist-empty">🎉 Nothing on the wishlist!</div>';
+    return;
+  }
+
+  // Populate month filter dynamically
+  const monthKeys = [...new Set(_wishlistSets.map(s =>
+    s.releaseDate ? s.releaseDate.getFullYear() + '-' + String(s.releaseDate.getMonth()+1).padStart(2,'0') : 'unknown'
+  ))].sort();
+  const sel = document.getElementById('filter-wl-month');
+  sel.innerHTML = '<option value="">All Months</option>';
+  monthKeys.forEach(key => {
+    const label = key === 'unknown' ? 'Date Unknown'
+      : MONTHS[parseInt(key.split('-')[1])-1] + ' ' + key.split('-')[0];
+    const o = document.createElement('option');
+    o.value = key; o.textContent = label;
+    sel.appendChild(o);
+  });
+
+  renderWishlistCards(_wishlistSets);
+}
+
+function renderSearch() {
+  const q = document.getElementById('search-input').value.toLowerCase().trim();
+  const theme = document.getElementById('filter-theme').value;
+  const builtF = document.getElementById('filter-built').value;
+  const retF = document.getElementById('filter-retired').value;
+
+  let results = allSets.filter(s => {
+    if (q && !s.name.toLowerCase().includes(q) && !s.num.includes(q)) return false;
+    if (theme && s.theme !== theme) return false;
+    if (builtF === 'YES' && !s.built) return false;
+    if (builtF === 'NO' && s.built) return false;
+    if (retF === 'Retired' && !s.retired) return false;
+    if (retF === 'Not Retired' && s.retired) return false;
+    return true;
+  });
+
+  document.getElementById('set-count').textContent = `${results.length} set${results.length !== 1 ? 's' : ''}`;
+
+  document.getElementById('search-results').innerHTML = results.map(s => `
+    <div class="set-card ${s.built ? 'built' : ''} ${s.retired ? 'retired' : ''}">
+      <div class="set-card-left">
+        <div class="set-num-label">#${s.num} · ${s.yearRel}</div>
+        <div class="set-name">${s.name}</div>
+        <div class="set-meta">
+          <span class="badge badge-theme">${s.theme}</span>
+          <span class="badge ${s.built ? 'badge-built' : 'badge-unbuilt'}">${s.built ? '✓ Built' : '○ Unbuilt'}</span>
+          <span class="badge ${s.retired ? 'badge-retired' : 'badge-active'}">${s.retired ? 'Retired' : 'Not Retired'}</span>
+        </div>
+      </div>
+      <div class="set-card-right">
+        <div class="set-pieces-num">${fmtN(s.pieces)}</div>
+        <div class="set-pieces-label">pieces</div>
+      </div>
+    </div>`).join('');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+loadData();
+</script>
+<script>
+// Version check — forces reload when version.txt changes
+(async function() {
+  try {
+    const resp = await fetch('/lego-xlsx/version.txt?t=' + Date.now());
+    const newVer = (await resp.text()).trim();
+    const oldVer = localStorage.getItem('lego-version');
+    if (oldVer && oldVer !== newVer) {
+      localStorage.setItem('lego-version', newVer);
+      window.location.reload(true);
+      return;
+    }
+    localStorage.setItem('lego-version', newVer);
+    document.getElementById('header-version').textContent = 'v' + newVer;
+  } catch(e) {
+    // offline — no problem, just use cached version
+  }
+})();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/lego-xlsx/sw.js')
+    .then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'activated') {
+            window.location.reload();
+          }
+        });
+      });
+    });
+}
+</script>
+</body>
+</html>
