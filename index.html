@@ -178,15 +178,6 @@ table.data td.num, table.data th.num{text-align:right;}
 }
 .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
 
-.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.9rem;}
-.metric-card{
-  border:1px solid var(--line);background:var(--bg-panel);border-radius:3px;
-  padding:.9rem 1rem;
-}
-.metric-card .mval{font-family:'IBM Plex Mono',monospace;font-size:1.5rem;color:var(--paper);}
-.metric-card .mval.warn{color:var(--safety);}
-.metric-card .mlabel{font-size:.72rem;color:var(--muted);margin-top:.15rem;}
-
 .weapon-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.9rem;}
 .weapon-card{
   border:1px solid var(--line);background:var(--bg-panel);border-radius:3px;
@@ -314,9 +305,6 @@ table.data td.num, table.data th.num{text-align:right;}
 
       <div class="section-title">Última atividade por grupo</div>
       <div class="tbl-wrap"><table class="data" id="tblAtividade"></table></div>
-
-      <div class="section-title">Qualidade dos dados</div>
-      <div class="metrics-row" id="qualidadeCards"></div>
 
     </section>
 
@@ -553,22 +541,6 @@ function renderResumo(){
     html += '</tbody>';
     document.getElementById('tblAtividade').innerHTML = html;
   }
-
-  const errRowIdx = findRow(rows, r=>typeof r[0]==='string' && r[0].startsWith('Linhas com Grupo'));
-  const manualRowIdx = findRow(rows, r=>typeof r[0]==='string' && r[0].startsWith('Treinos lan'));
-  const errVal = errRowIdx>=0 ? num(rows[errRowIdx][2]) : 0;
-  const manualVal = manualRowIdx>=0 ? num(rows[manualRowIdx][2]) : 0;
-
-  document.getElementById('qualidadeCards').innerHTML = `
-    <div class="metric-card">
-      <div class="mval ${errVal>0?'warn':''}">${errVal}</div>
-      <div class="mlabel">Linhas com grupo não identificado</div>
-    </div>
-    <div class="metric-card">
-      <div class="mval">${manualVal}</div>
-      <div class="mlabel">Treinos lançados manualmente</div>
-    </div>
-  `;
 }
 
 function formatGT(v){
