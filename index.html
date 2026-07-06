@@ -255,12 +255,6 @@ table.data td.num, table.data th.num{text-align:right;}
 }
 .file-fallback input{display:none;}
 
-footer.foot{
-  max-width:1080px;margin:3rem auto 0;padding:1rem 1.25rem 0;
-  border-top:1px solid var(--line);font-size:.68rem;color:var(--muted-2);
-  font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
-}
-
 @media(max-width:520px){
   .brand-text h1{font-size:1rem;}
   nav.tabs{width:100%;}
@@ -346,11 +340,6 @@ footer.foot{
 
 </main>
 
-<footer class="foot">
-  <span>Fonte: Comp_Acervo_V4.xlsm</span>
-  <span id="lastSync">—</span>
-</footer>
-
 <script>
 const RAW_URL = "https://raw.githubusercontent.com/lfranoya/guns/main/data/Comp_Acervo_V4.xlsm";
 
@@ -367,10 +356,16 @@ function aoa(sheetName){
   return XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null});
 }
 
+const MONTHS_PT = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
 function fmtDate(v){
-  if(v instanceof Date && !isNaN(v)) return v.toLocaleDateString('pt-BR');
-  if(typeof v === 'number') return XLSX.SSF.format('dd/mm/yyyy', v);
-  return v ?? '—';
+  let d = null;
+  if(v instanceof Date && !isNaN(v)) d = v;
+  else if(typeof v === 'number'){ d = XLSX.SSF.parse_date_code(v); d = d ? new Date(d.y, d.m-1, d.d) : null; }
+  if(!d) return v ?? '—';
+  const day = String(d.getDate()).padStart(2,'0');
+  const month = MONTHS_PT[d.getMonth()];
+  return `${day}-${month}-${d.getFullYear()}`;
 }
 
 function findRow(rows, predicate, from=0){
@@ -445,9 +440,25 @@ function computeGroupMetrics(grupo, inicio, fim){
   return {treinos, provas, nacionais, porEntidade};
 }
 
+function toInputDate(d){
+  if(!(d instanceof Date) || isNaN(d)) return '';
+  const pad = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+function getSelectedDate(prefix, endOfDay){
+  const val = document.getElementById(prefix+'Input').value;
+  if(!val) return new Date(NaN);
+  return new Date(val + (endOfDay ? 'T23:59:59' : 'T00:00:00'));
+}
+
+function setSelectsFromDate(prefix, date){
+  document.getElementById(prefix+'Input').value = toInputDate(date);
+}
+
 function recomputeProgress(){
-  const inicio = new Date(document.getElementById('inicioInput').value+'T00:00:00');
-  const fim = new Date(document.getElementById('fimInput').value+'T23:59:59');
+  const inicio = getSelectedDate('inicio', false);
+  const fim = getSelectedDate('fim', true);
   if(isNaN(inicio) || isNaN(fim)) return;
 
   const metrics = GROUPS_ORDER.map(grupo=>({grupo, ...computeGroupMetrics(grupo, inicio, fim)}));
@@ -484,8 +495,8 @@ function recomputeProgress(){
 }
 
 function resetWindow(){
-  document.getElementById('inicioInput').value = toInputDate(ORIG_INICIO);
-  document.getElementById('fimInput').value = toInputDate(ORIG_FIM);
+  setSelectsFromDate('inicio', ORIG_INICIO);
+  setSelectsFromDate('fim', ORIG_FIM);
   recomputeProgress();
 }
 
@@ -513,8 +524,8 @@ function renderResumo(){
   BASE_ROWS = collectBlock(aoa('BASE'), 1);
 
   document.getElementById('windowBar').innerHTML = `
-    <span>Janela: <input type="date" id="inicioInput" value="${toInputDate(ORIG_INICIO)}"> a
-    <input type="date" id="fimInput" value="${toInputDate(ORIG_FIM)}"></span>
+    <span>Janela: <input type="date" id="inicioInput" lang="pt-BR" value="${toInputDate(ORIG_INICIO)}"> a
+    <input type="date" id="fimInput" lang="pt-BR" value="${toInputDate(ORIG_FIM)}"></span>
     <button id="resetWindowBtn" type="button">Restaurar janela original</button>
     <span>Meta do ciclo: <b>${META_TREINOS}</b> treinos · <b>${META_PROVAS}</b> provas · <b>${META_NAC}</b> nacionais</span>
   `;
@@ -560,6 +571,13 @@ function renderResumo(){
   `;
 }
 
+function formatGT(v){
+  if(v===null || v===undefined) return '—';
+  const s = String(v).trim();
+  if(s.length===6) return s.slice(0,3)+'.'+s.slice(3);
+  return s;
+}
+
 function renderArmas(){
   const rows = aoa('Armas');
   if(!rows.length) return;
@@ -576,7 +594,7 @@ function renderArmas(){
       <dl>
         <div><dt>Calibre</dt><dd>${r[idx.calibre]??'—'}</dd></div>
         <div><dt>Sigma</dt><dd>${typeof r[idx.sigma]==='number' ? r[idx.sigma].toLocaleString('pt-BR') : (r[idx.sigma]??'—')}</dd></div>
-        <div><dt># GT Base</dt><dd>${r[idx.gt]??'—'}</dd></div>
+        <div><dt>GT Base</dt><dd>${formatGT(r[idx.gt])}</dd></div>
       </dl>
     </div>`;
   }).join('') || '<p style="color:var(--muted)">Nenhuma arma cadastrada.</p>';
@@ -622,8 +640,8 @@ function renderAll(){
 
 function setSync(ok, text){
   document.getElementById('syncDot').className = 'dot ' + (ok?'ok':'err');
-  document.getElementById('syncText').textContent = text;
-  document.getElementById('lastSync').textContent = 'Última sincronização: ' + new Date().toLocaleString('pt-BR');
+  const ts = new Date().toLocaleString('pt-BR');
+  document.getElementById('syncText').textContent = ok ? `${text} · ${ts}` : text;
 }
 
 function showApp(){
